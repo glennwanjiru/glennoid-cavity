@@ -1,57 +1,61 @@
-#include <Arduino.h>
 #include <Servo.h>
+#include <Arduino.h
+#define BUZZER_PIN 12  // Define the pin connected to the buzzer
 
-Servo myServo;
-int trigPin = 10;   // Trig pin for ultrasonic sensor
-int echoPin = 11;   // Echo pin for ultrasonic sensor
-int servoPin = 9;   // PWM pin for servo motor
-int obstacleDistance = 20;  // Distance in centimeters to consider as an obstacle
-int servoPosition = 0;  // Initial position of the servo
-boolean obstacleDetected = false;  // Flag to track if an obstacle is detected
-int servoSpeed = 5;  // Speed of the servo motor movement (adjust as needed)
+Servo myservo;
+const int trigPin = 10;
+const int echoPin = 11;
+const int servoPin = 9;
+const int stepAngle = 5;
+long duration, distance;
 
 void setup() {
-  myServo.attach(servoPin);
+  Serial.begin(9600);
+  myservo.attach(servoPin);
   pinMode(trigPin, OUTPUT);
   pinMode(echoPin, INPUT);
-  Serial.begin(9600);  // Initialize Serial for debugging
+  pinMode(BUZZER_PIN, OUTPUT); // Set buzzer pin as output
 }
 
 void loop() {
-  long duration, distance;
-  
-  // Move the servo back and forth only if no obstacle is detected
-  if (!obstacleDetected) {
-    for (servoPosition = 0; servoPosition <= 180; servoPosition += servoSpeed) {
-      myServo.write(servoPosition);
-      delay(15);  // Adjust the delay for smoother movement
-    }
+  for (int angle = 0; angle <= 180; angle += stepAngle) {
+    myservo.write(angle);
 
-    for (servoPosition = 180; servoPosition >= 0; servoPosition -= servoSpeed) {
-      myServo.write(servoPosition);
-      delay(15);  // Adjust the delay for smoother movement
+    // Delay for 1 second between scans
+    delay(200);
+
+    // Trigger measurement
+    digitalWrite(trigPin, LOW);
+    delayMicroseconds(2);
+    digitalWrite(trigPin, HIGH);
+    delayMicroseconds(10);
+    digitalWrite(trigPin, LOW);
+
+    // Read echo and calculate distance
+    duration = pulseIn(echoPin, HIGH);
+    distance = duration * 0.034 / 2;
+
+    // Check for obstacle and beep if detected
+    if (distance < 50) {
+      myservo.write(90);
+      Serial.print("Obstacle at angle: ");
+      Serial.print(angle);
+      Serial.print(" degrees, distance: ");
+      Serial.print(distance);
+      Serial.println(" cm");
+
+      // Use tone() or digitalWrite() for desired buzzer behavior
+      // Option 1: Use tone() for specific frequency and duration
+      tone(BUZZER_PIN, 1000, 500); // Beeps at 1kHz for 500ms
+
+      // Option 2: Use digitalWrite() for simple on/off control
+      // digitalWrite(BUZZER_PIN, HIGH); // Turn on buzzer
+      // delay(500); // Keep buzzer on for 500ms
+      // digitalWrite(BUZZER_PIN, LOW); // Turn off buzzer
+
+      // Optional: Stop servo on obstacle detection
+      // myservo.stop(); // uncomment if you want to stop servo
+      // break; // uncomment if you want to exit the loop
     }
   }
-
-  // Measure distance using the ultrasonic sensor
-  digitalWrite(trigPin, LOW);
-  delayMicroseconds(2);
-  digitalWrite(trigPin, HIGH);
-  delayMicroseconds(10);
-  digitalWrite(trigPin, LOW);
-  duration = pulseIn(echoPin, HIGH);
-  distance = (duration / 2) * 0.0343;
-
-  // Check for obstacle
-  if (distance <= obstacleDistance) {
-    if (!obstacleDetected) {
-      myServo.write(90);  // Stop the servo motor only once when obstacle detected
-      Serial.println("Obstacle detected!");
-    }
-    obstacleDetected = true;  // Set obstacle detected flag
-  } else {
-    obstacleDetected = false;  // Reset obstacle detected flag
-  }
-
-  delay(200);  // Adjust the delay as needed
 }
